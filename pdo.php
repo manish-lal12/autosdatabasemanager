@@ -1,21 +1,37 @@
 <?php
-$host = getenv('DB_HOST');
-$db   = getenv('DB_NAME');
-$user = getenv('DB_USER');
-$pass = getenv('DB_PASS');
+$dbUrl = getenv('DATABASE_URL');
+
+if (!$dbUrl) {
+    die("DATABASE_URL environment variable not set.");
+}
 
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8mb4", $user, $pass);
+    // Parse the URL
+    $url = parse_url($dbUrl);
+    parse_str($url['query'] ?? '', $query); // Parse ?sslmode=require
+
+    $host = $url['host'];
+    $port = $url['port'] ?? 5432;
+    $user = $url['user'];
+    $pass = $url['pass'];
+    $db   = ltrim($url['path'], '/'); // Remove leading slash
+    $sslmode = $query['sslmode'] ?? 'require';
+
+    $dsn = "pgsql:host=$host;port=$port;dbname=$db;sslmode=$sslmode";
+
+    $pdo = new PDO($dsn, $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // Create table if not exists (optional for prod)
+    // Create table if not exists
     $pdo->exec('CREATE TABLE IF NOT EXISTS autos (
-        id INTEGER PRIMARY KEY AUTO_INCREMENT,
+        id SERIAL PRIMARY KEY,
         make TEXT,
         year INTEGER,
         mileage INTEGER
     )');
+
+    echo "Connected and table checked successfully.";
 } catch (PDOException $e) {
-    die("Could not connect to the database: " . $e->getMessage());
+    die("Database connection failed: " . $e->getMessage());
 }
 ?>
